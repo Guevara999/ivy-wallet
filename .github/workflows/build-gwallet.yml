@@ -1,7 +1,7 @@
-name: Build G Wallet
+name: Build G Wallet Fast
 
 on:
-  workflow_dispatch: # Gives you the manual button to build
+  workflow_dispatch: # Manual play button trigger
 
 jobs:
   build:
@@ -17,12 +17,17 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
-    - name: Force Injection of G Wallet Settings
+    - name: Strip Google Analytics & Fix App Names
       run: |
-        # Safely rewrite the app identity package on the fly
+        # 1. Strip the conflicting Google services & Firebase crash reporting plugins from the app configuration
+        sed -i 's/id("com.google.gms.google-services")/\/\/ removed/g' app/build.gradle.kts
+        sed -i 's/id("com.google.firebase.crashlytics")/\/\/ removed/g' app/build.gradle.kts
+        sed -i 's/implementation(libs.bundles.firebase)/\/\/ removed/g' app/build.gradle.kts
+        
+        # 2. Safely apply your custom package ID identification line
         sed -i 's/applicationId = "com.ivy.wallet"/applicationId = "com.gwallet.app"/' app/build.gradle.kts
         
-        # Safely overwrite all name variables right before compiling
+        # 3. Swap the system variables dynamically to read your customized display layout name
         sed -i 's/"Ivy Wallet"/"G Wallet"/g' app/build.gradle.kts
         sed -i 's/"Ivy Wallet Debug"/"G Wallet Debug"/g' app/build.gradle.kts
 
@@ -30,11 +35,10 @@ jobs:
       run: chmod +x gradlew
 
     - name: Build Android APK
-      run: ./gradlew assembleDebug
+      run: ./gradlew assembleDebug --no-daemon
 
     - name: Upload Finished APK
       uses: actions/upload-artifact@v4
       with:
-        name: G-Wallet-Installer
+        name: G-Wallet-Package
         path: app/build/outputs/apk/debug/app-debug.apk
-        
